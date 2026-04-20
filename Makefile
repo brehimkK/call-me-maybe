@@ -1,20 +1,13 @@
+.PHONY: install run test lint
+
 install:
-	pip install -r requirements.txt
+	uv sync
 
 run:
-	python -m src
+	uv run python -m call_me_maybe
 
-debug:
-	python -m pdb -m src
-
-clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type d -name ".mypy_cache" -exec rm -rf {} +
+test:
+	uv run pytest
 
 lint:
-	flake8 .
-	mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
-
-lint-strict:
-	flake8 .
-	mypy . --strict
+	uv run python -m py_compile src/call_me_maybe/*.py
