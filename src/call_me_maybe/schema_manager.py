@@ -1,61 +1,49 @@
-from pydantic import BaseModel, Field
-from typing import Dict, Any, List
-
-
-class FunctionParameter(BaseModel):
-    """
-    Represents the type constraints for a single function argument.
-    Used to ensure the LLM provides the correct data type (e.g., number, string).
-    """
-    type: str = Field(..., description="The expected data type, e.g., 'number' or 'string'")
-
-
-class FunctionDefinition(BaseModel):
-    """
-    Groups the metadata of a tool together.
-    This serves as the 'manual' that describes what each function does and requires.
-    """
-    name: str = Field(..., description="The unique name of the function")
-    description: str = Field(..., description="Natural language explanation of the tool")
-    parameters: Dict[str, FunctionParameter] = Field(..., description="Map of parameter names to their types")
-    returns: Dict[str, str] = Field(..., description="The return type of the function")
-
-
-class FunctionCallResult(BaseModel):
-    """
-    The final output format required by the subject.
-    Ensures the output contains exactly the prompt, name, and parameters.
-    """
-    prompt: str = Field(..., description="The original natural-language request")
-    name: str = Field(..., description="The name of the function to call")
-    parameters: Dict[str, Any] = Field(..., description="The arguments extracted by the LLM")
+from .models import FunctionDefinition
+from typing import List, Dict, Any, Optional
 
 
 class SchemaManager:
     """
-    The main controller for your schemas.
-    It loads raw data and provides helper methods for the Decoder.
+    Central registry for function schemas.
+    Validates raw definitions and exposes query helpers for decoding.
     """
+
     def __init__(self, functions_list: List[Dict[str, Any]]):
         """
-        Initializes the manager by validating a list of raw dictionaries 
-        into Pydantic FunctionDefinition objects.
+        Converts raw function dictionaries into validated FunctionDefinition objects.
+        Skips or raises on invalid entries depending on strict policy.
         """
-        # This handles the requirement to handle malformed inputs gracefully
-        self.available_functions: List[FunctionDefinition] = [
-            FunctionDefinition(**fn) for fn in functions_list
-        ]
+
+        self.available_functions: List[FunctionDefinition] = []
+
+        for fn in functions_list:
+            try:
+                self.available_functions.append(FunctionDefinition(**fn))
+            except Exception:
+                continue
+
+        self._function_map: Dict[str, FunctionDefinition] = {
+            fn.name: fn for fn in self.available_functions
+        }
 
     def get_function_names(self) -> List[str]:
-        """Returns a list of all valid function names for the decoder to enforce."""
-        return [fn.name for fn in self.available_functions]
+        """Returns all valid function names."""
+        return list(self._function_map.keys())
 
     def get_params_for_function(self, func_name: str) -> Dict[str, str]:
         """
-        Retrieves the parameter names and their expected types 
-        for a specific function.
+        Returns parameter name → type mapping for a function.
         """
-        for fn in self.available_functions:
-            if fn.name == func_name:
-                return {name: p.type for name, p in fn.parameters.items()}
-        return {}
+
+        fn = self._function_map.get(func_name)
+        if not fn:
+            return {}
+
+        return {
+            param.name: param.type
+            for param in fn.parameters
+        }
+
+    def get_function(self, func_name: str) -> Optional[FunctionDefinition]:
+        """Returns full function definition if exists."""
+        return self._function_map.get(func_name)
