@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Foundation scaffold for call_me_maybe"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "pydantic>=2.13.3",
+]
 
 [dependency-groups]
 dev = [

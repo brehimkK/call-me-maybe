@@ -148,4 +148,27 @@ class NormalizedSchema(BaseModel):
         default_factory=lambda: ["name", "description", "parameters", "strict", "returns"],
         description="Canonical field order used for deterministic serialization"
     )
-    
+
+
+class RawLLMOutput(BaseModel):
+    """
+    Represents the raw, unprocessed response returned by an LLM provider.
+    This includes the source (provider), the specific model used, and
+    the raw content generated. It is used for debugging, logging,
+    and downstream parsing.
+    """
+
+    provider: str = Field(
+        ...,
+        description="The LLM service provider that generated the response (e.g., 'openai', 'anthropic')"
+    )
+
+    model: str = Field(
+        ...,
+        description="The name of the model used to generate the response (e.g., 'gpt-5', 'claude-3')"
+    )
+
+    content: str = Field(
+        ...,
+        description="The raw text output returned by the LLM before any parsing or validation"
+    )
