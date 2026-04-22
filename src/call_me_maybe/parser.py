@@ -6,21 +6,21 @@ from .errors import InputParseError
 
 
 def load_input(source: str | Path) -> ParsedInput:
-
     """
-Loads input from a file path or JSON string.
+    Loads input from a file path or JSON string.
 
-Supports:
-- Path: reads UTF-8 file content
-- str: treated as file path if it exists, otherwise raw JSON string
+    Supports:
+    - Path: reads UTF-8 file content
+    - str: treated as file path if it exists, otherwise raw JSON string
 
-Returns:
-- ParsedInput built from decoded JSON
+    Returns:
+    - ParsedInput built from decoded JSON
 
-Raises:
-- InputParseError for file read errors, invalid input type, or malformed JSON
-"""
- 
+    Raises:
+    - InputParseError for file read errors, invalid input type,
+      or malformed JSON
+    """
+
     raw = None
 
     if isinstance(source, Path):
@@ -31,7 +31,7 @@ Raises:
 
     elif isinstance(source, str):
         p = Path(source)
-        if p.exists():
+        if p.exists() and p.is_file():
             try:
                 raw = p.read_text(encoding="utf-8")
             except Exception as e:
@@ -40,7 +40,10 @@ Raises:
             raw = source
 
     else:
-        raise InputParseError("Invalid input type")
+        raise InputParseError(f"Invalid input type: {type(source).__name__}")
+
+    if raw is None:
+        raise InputParseError("Failed to load input")
 
     try:
         data = json.loads(raw)
@@ -49,10 +52,17 @@ Raises:
             f"Invalid JSON at line {e.lineno}, column {e.colno}"
         ) from e
 
-    return ParsedInput(data)
+    validate_structure(data)
+
+    return ParsedInput(
+        raw_text=data["prompt"],
+        intent="",
+        entities={},
+        metadata={"functions": data["functions"]}
+    )
 
 
-def validate_structure(data: Any):
+def validate_structure(data: Any) -> None:
     if not isinstance(data, dict):
         raise InputParseError("Top-level JSON must be an object/dict")
 
@@ -63,12 +73,14 @@ def validate_structure(data: Any):
         raise InputParseError("Missing functions")
 
     prompt = data["prompt"]
+    functions = data["functions"]
 
     if not isinstance(prompt, str):
         raise InputParseError("prompt must be string")
 
-    functions = data["functions"]
-
     if not isinstance(functions, list):
         raise InputParseError("functions must be list")
-    
+
+    for fn in functions:
+        if not isinstance(fn, dict):
+            raise InputParseError("Each function must be an object/dict")

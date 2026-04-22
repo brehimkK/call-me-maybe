@@ -10,7 +10,8 @@ class FunctionParameter(BaseModel):
 
     name: str = Field(..., description="Name of the parameter")
 
-    type: Literal["string", "integer", "array", "number", "boolean", "object"] = Field(
+    type: Literal[
+        "string", "integer", "array", "number", "boolean", "object"] = Field(
         ..., description="Expected data type of the parameter"
     )
 
@@ -145,8 +146,10 @@ class NormalizedSchema(BaseModel):
     )
 
     field_order: List[str] = Field(
-        default_factory=lambda: ["name", "description", "parameters", "strict", "returns"],
-        description="Canonical field order used for deterministic serialization"
+        default_factory=lambda: [
+            "name", "description", "parameters", "strict", "returns"],
+        description="Canonical field order used for "
+        "deterministic serialization"
     )
 
 
@@ -160,15 +163,18 @@ class RawLLMOutput(BaseModel):
 
     provider: str = Field(
         ...,
-        description="The LLM service provider that generated the response (e.g., 'openai', 'anthropic')"
+        description="The LLM service provider that generated the response "
+        "(e.g., 'openai', 'anthropic')"
     )
 
     model: str = Field(
         ...,
-        description="The name of the model used to generate the response (e.g., 'gpt-5', 'claude-3')"
+        description="The name of the model used to generate the response"
+        " (e.g., 'gpt-5', 'claude-3')"
     )
 
     content: str = Field(
         ...,
-        description="The raw text output returned by the LLM before any parsing or validation"
+        description="The raw text output returned by "
+        "the LLM before any parsing or validation"
     )
