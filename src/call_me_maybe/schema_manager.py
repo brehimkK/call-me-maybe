@@ -1,6 +1,7 @@
 from .models import FunctionDefinition
 from typing import List, Dict, Any, Optional
-from .errors import SchemaError
+from .errors import SchemaError, ValidationError
+import pydantic
 
 
 class SchemaManager:
@@ -11,7 +12,8 @@ class SchemaManager:
 
     def __init__(self, functions_list: List[Dict[str, Any]]) -> None:
         """
-        Converts raw function dictionaries into validated FunctionDefinition objects.
+        Converts raw function dictionaries
+          into validated FunctionDefinition objects.
         Skips or raises on invalid entries depending on strict policy.
         """
 
@@ -22,33 +24,37 @@ class SchemaManager:
             try:
 
                 func = FunctionDefinition(**fn)
-            except Exception as e:
-                raise SchemaError(f"Invalid function definition for {fn.get('name', 'unknown')}: {e}") from e         
-            
+            except pydantic.ValidationError as e:
+                raise SchemaError(
+                    f"Invalid function definition for "
+                    f"{fn.get('name', 'unknown')}: {e}"
+                ) from e
+
             if func.name in self._function_names:
-                raise SchemaError(f"{func.name} is already on the list")
-            
-            self._function_names.add(func.name) 
+                raise ValidationError(f"{func.name} is already on the list")
+
+            self._function_names.add(func.name)
             self.available_functions.append(func)
 
         if not self.available_functions:
-            raise SchemaError("No function provided")
+            raise SchemaError("No valid function definitions provided")
 
     def get_function_names(self) -> List[str]:
-        return list(self._function_names)
+        return sorted(self._function_names)
 
-    def get_params_for_function(self, func_name: str) -> Dict[str, str]:
+    def get_params_for_function(self, func_name: str) -> dict[str, str]:
         """
         Returns parameter name → type mapping for a function.
         """
 
-        fn = next((f for f in self.available_functions if f.name == func_name), None)
+        fn = next((
+            f for f in self.available_functions if f.name == func_name), None)
         if not fn:
             return {}
-        
+
         return {
             param.name: param.type
-            for param in fn.paramters}
+            for param in fn.parameters}
 
     def get_function(self, func_name: str) -> Optional[FunctionDefinition]:
         """Returns full function definition if exists."""
