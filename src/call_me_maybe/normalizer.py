@@ -157,8 +157,7 @@ def _normalize_parameters(
         description = param_spec.get("description", None)
         if description is not None and not isinstance(description, str):
             raise SchemaError(
-                f"Function '{fn_name}' parameter '{param_name}' "
-                "description must be a string or None"
+                f"Function '{fn_name}' parameter '{param_name}' description must be a string or None"
             )
 
         default = param_spec.get("default", None)
@@ -166,8 +165,7 @@ def _normalize_parameters(
         enum = param_spec.get("enum", None)
         if enum is not None and not isinstance(enum, list):
             raise SchemaError(
-                f"Function '{fn_name}' parameter '{param_name}' "
-                "enum must be a list or None"
+                f"Function '{fn_name}' parameter '{param_name}' enum must be a list or None"
             )
 
         result.append(FunctionParameter(
@@ -176,7 +174,7 @@ def _normalize_parameters(
             required=required,
             description=description,
             default=default,
-            enum=enum
+            enum=enum,
         ))
 
     return result
