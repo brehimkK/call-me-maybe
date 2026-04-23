@@ -1,104 +1,194 @@
 import json
 import pytest
 
-from src.call_me_maybe.normalizer import normalize
-from src.call_me_maybe.models import ParsedInput
-from src.call_me_maybe.errors import SchemaError
+from call_me_maybe.models import ParsedInput
+from call_me_maybe.normalizer import normalize
+from call_me_maybe.errors import SchemaError
 
 
-def _make_input(functions):
-    return ParsedInput(metadata={"functions": functions})
+def _to_bytes(schema) -> bytes:
+    return json.dumps(
+        schema.model_dump(),
+        sort_keys=True,
+        separators=(",", ":")
+    ).encode("utf-8")
 
 
-def test_deterministic_output_across_order_variations():
-    fn1 = {
-        "name": "b_func",
-        "description": "test",
-        "parameters": {
-            "y": {"type": "int", "required": False},
-            "a": {"type": "str"},
+def test_stable_output_across_field_order_variations():
+    parsed_a = ParsedInput(
+        raw_text="sum two numbers",
+        intent="",
+        entities={},
+        metadata={
+            "functions": [
+                {
+                    "name": "fn_add_numbers",
+                    "description": "Add two numbers",
+                    "parameters": {
+                        "b": {"type": "int", "required": False},
+                        "a": {"type": "int"},
+                    },
+                    "returns": {"type": "int"},
+                },
+                {
+                    "name": "fn_greet",
+                    "description": "Greet a user",
+                    "parameters": {
+                        "name": {"type": "str"},
+                    },
+                    "returns": "string",
+                },
+            ]
         },
-        "returns": {"type": "string"},
-    }
-
-    fn2 = {
-        "name": "a_func",
-        "description": "test",
-        "parameters": {
-            "b": {"type": "bool"},
-            "a": {"type": "int"},
-        },
-        "returns": {"type": "string"},
-    }
-
-    input1 = _make_input([fn1, fn2])
-    input2 = _make_input([fn2, fn1])
-
-    out1 = normalize(input1)
-    out2 = normalize(input2)
-
-    assert json.dumps(out1.functions, sort_keys=True) == json.dumps(
-        out2.functions, sort_keys=True
     )
 
-
-def test_type_alias_normalization():
-    fn = {
-        "name": "test_fn",
-        "parameters": {
-            "a": {"type": "str"},
-            "b": {"type": "int"},
-            "c": {"type": "float"},
-            "d": {"type": "bool"},
+    parsed_b = ParsedInput(
+        raw_text="sum two numbers",
+        intent="",
+        entities={},
+        metadata={
+            "functions": [
+                {
+                    "returns": "string",
+                    "parameters": {
+                        "name": {"type": "string"},
+                    },
+                    "description": "Greet a user",
+                    "name": "fn_greet",
+                },
+                {
+                    "parameters": {
+                        "a": {"type": "integer"},
+                        "b": {"required": False, "type": "integer"},
+                    },
+                    "name": "fn_add_numbers",
+                    "returns": {"type": "integer"},
+                    "description": "Add two numbers",
+                },
+            ]
         },
-        "returns": {"type": "double"},
-    }
+    )
 
-    result = normalize(_make_input([fn]))
+    norm_a = normalize(parsed_a)
+    norm_b = normalize(parsed_b)
 
-    params = result.functions[0]["parameters"]
-
-    assert params["a"]["type"] == "string"
-    assert params["b"]["type"] == "integer"
-    assert params["c"]["type"] == "number"
-    assert params["d"]["type"] == "boolean"
-    assert result.functions[0]["returns"]["type"] == "number"
+    assert _to_bytes(norm_a) == _to_bytes(norm_b)
 
 
-def test_unsupported_type_raises_schema_error():
-    fn = {
-        "name": "bad_fn",
-        "parameters": {
-            "a": {"type": "datetime"},
+def test_type_normalization_aliases():
+    parsed = ParsedInput(
+        raw_text="types",
+        intent="",
+        entities={},
+        metadata={
+            "functions": [
+                {
+                    "name": "fn_types",
+                    "description": "normalize aliases",
+                    "parameters": {
+                        "s": {"type": "str"},
+                        "i": {"type": "int"},
+                        "n": {"type": "float"},
+                        "b": {"type": "bool"},
+                        "arr": {"type": "list"},
+                        "obj": {"type": "dict"},
+                    },
+                    "returns": {"type": "string"},
+                }
+            ]
         },
-        "returns": {"type": "string"},
-    }
+    )
 
-    with pytest.raises(SchemaError) as e:
-        normalize(_make_input([fn]))
+    norm = normalize(parsed)
+    fn = norm.functions[0]
 
-    assert "datetime" in str(e.value)
+    by_name = {p.name: p.type for p in fn.parameters}
+    assert by_name["s"] == "string"
+    assert by_name["i"] == "integer"
+    assert by_name["n"] == "number"
+    assert by_name["b"] == "boolean"
+    assert by_name["arr"] == "array"
+    assert by_name["obj"] == "object"
 
 
-def test_optional_fields_preserved():
-    fn = {
-        "name": "fn",
-        "description": "keep me",
-        "parameters": {
-            "a": {
-                "type": "int",
-                "required": False,
-                "default": 10,
-                "enum": [1, 2, 3],
-            }
+def test_unsupported_type_rejected_with_offending_type_in_message():
+    parsed = ParsedInput(
+        raw_text="bad type",
+        intent="",
+        entities={},
+        metadata={
+            "functions": [
+                {
+                    "name": "fn_bad",
+                    "description": "bad",
+                    "parameters": {
+                        "when": {"type": "datetime"},
+                    },
+                    "returns": {"type": "string"},
+                }
+            ]
         },
-        "returns": {"type": "string"},
-    }
+    )
 
-    result = normalize(_make_input([fn]))
-    param = result.functions[0]["parameters"]["a"]
+    with pytest.raises(SchemaError, match="datetime"):
+        normalize(parsed)
 
-    assert param["required"] is False
-    assert param["default"] == 10
-    assert param["enum"] == [1, 2, 3]
-    assert param["type"] == "integer"
+
+def test_optional_parameter_fields_preserved():
+    parsed = ParsedInput(
+        raw_text="optional fields",
+        intent="",
+        entities={},
+        metadata={
+            "functions": [
+                {
+                    "name": "fn_substitute",
+                    "description": "Substitute with regex",
+                    "parameters": {
+                        "replacement": {
+                            "type": "str",
+                            "required": False,
+                            "description": "Replacement token",
+                            "default": "NUMBERS",
+                            "enum": ["NUMBERS", "MASKED"],
+                        }
+                    },
+                    "returns": {"type": "string"},
+                }
+            ]
+        },
+    )
+
+    norm = normalize(parsed)
+    p = norm.functions[0].parameters[0]
+
+    assert p.name == "replacement"
+    assert p.type == "string"
+    assert p.required is False
+    assert p.description == "Replacement token"
+    assert p.default == "NUMBERS"
+    assert p.enum == ["NUMBERS", "MASKED"]
+
+
+def test_required_defaults_to_true():
+    parsed = ParsedInput(
+        raw_text="required default",
+        intent="",
+        entities={},
+        metadata={
+            "functions": [
+                {
+                    "name": "fn_greet",
+                    "description": "Greet",
+                    "parameters": {
+                        "name": {"type": "str"}  # required omitted
+                    },
+                    "returns": {"type": "string"},
+                }
+            ]
+        },
+    )
+
+    norm = normalize(parsed)
+    param = norm.functions[0].parameters[0]
+    assert param.required is True
