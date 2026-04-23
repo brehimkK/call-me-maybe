@@ -105,7 +105,9 @@ def _normalize_function(fn: Any, index: int) -> dict[str, Any]:
 
 
 def _normalize_parameters(
-        parameters: Any, fn_name: str) -> list[FunctionParameter]:
+    parameters: Any, fn_name: str
+) -> list[FunctionParameter]:
+
     if parameters is None:
         parameters = {}
 
@@ -123,8 +125,9 @@ def _normalize_parameters(
             )
 
         if not isinstance(parameters[param_name], dict):
-            raise SchemaError(f"Function '{fn_name}' parameter"
-                              " '{param_name}' must be a dict")
+            raise SchemaError(
+                f"Function '{fn_name}' parameter '{param_name}' must be a dict"
+            )
 
         param_spec = parameters[param_name]
 
@@ -151,10 +154,29 @@ def _normalize_parameters(
                 "required must be a boolean"
             )
 
+        description = param_spec.get("description", None)
+        if description is not None and not isinstance(description, str):
+            raise SchemaError(
+                f"Function '{fn_name}' parameter '{param_name}' "
+                "description must be a string or None"
+            )
+
+        default = param_spec.get("default", None)
+
+        enum = param_spec.get("enum", None)
+        if enum is not None and not isinstance(enum, list):
+            raise SchemaError(
+                f"Function '{fn_name}' parameter '{param_name}' "
+                "enum must be a list or None"
+            )
+
         result.append(FunctionParameter(
             name=param_name,
             type=normalized_type,
-            required=required
+            required=required,
+            description=description,
+            default=default,
+            enum=enum
         ))
 
     return result
