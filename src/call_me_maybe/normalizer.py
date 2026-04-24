@@ -21,19 +21,33 @@ TYPE_ALIASES = {
     "object": "object",
 }
 
+# The normalizer converts raw parsed data → strict, validated,
+# -> structured schema:
+
+# Validate structure
+# Enforce rules
+# Remove ambiguity
+# Produce something safe for downstream use
+
 
 def normalize(parsed: ParsedInput) -> NormalizedSchema:
-    if not isinstance(parsed.metadata, dict):
+    metadata = parsed.metadata
+
+    if not parsed.metadata:
+        raise SchemaError("no data provided")
+
+    if not isinstance(metadata, dict):
         raise SchemaError("ParsedInput.metadata must be a dict")
 
-    functions = parsed.metadata.get("functions")
+    functions = metadata.get("functions")
 
-    if functions is None:
+    if functions is None or functions == "":
         raise SchemaError("ParsedInput.metadata['functions'] is required")
 
     if not isinstance(functions, list):
-        raise SchemaError("ParsedInput.metadata['functions']"
-                          " must be a list")
+        raise SchemaError(
+            "ParsedInput.metadata['functions'] must be a list"
+        )
 
     normalized_functions = []
 
@@ -56,7 +70,7 @@ def _normalize_function(fn: Any, index: int) -> dict[str, Any]:
         raise SchemaError(f"Function at index {index} has invalid 'name'")
     name = name.strip()
 
-    description = fn.get("description", "")
+    description = fn.get("description")
 
     if description is None:
         description = ""
@@ -99,7 +113,6 @@ def _normalize_function(fn: Any, index: int) -> dict[str, Any]:
         "name": name,
         "description": description,
         "parameters": normalized_params,
-        "strict": True,
         "returns": normalized_return,
     }
 
@@ -108,12 +121,6 @@ def _normalize_parameters(
     parameters: Any, fn_name: str
 ) -> list[FunctionParameter]:
 
-    if parameters is None:
-        parameters = {}
-
-    if not isinstance(parameters, dict):
-        raise SchemaError(f"Function '{fn_name}' parameters must be a dict")
-
     keys = sorted(parameters.keys())
 
     result = []
@@ -121,7 +128,8 @@ def _normalize_parameters(
     for param_name in keys:
         if not isinstance(param_name, str):
             raise SchemaError(
-                f"Function '{fn_name}' parameter name must be a string"
+                f"Function '{fn_name}' parameter"
+                f" {param_name} name must be a string"
             )
 
         if not isinstance(parameters[param_name], dict):
@@ -146,37 +154,10 @@ def _normalize_parameters(
             f"Function '{fn_name}' parameter '{param_name}'"
         )
 
-        required = param_spec.get("required", True)
-
-        if not isinstance(required, bool):
-            raise SchemaError(
-                f"Function '{fn_name}' parameter '{param_name}' "
-                "required must be a boolean"
-            )
-
-        description = param_spec.get("description", None)
-        if description is not None and not isinstance(description, str):
-            raise SchemaError(
-                f"Function '{fn_name}' parameter '{param_name}' description must be a string or None"
-            )
-
-        default = param_spec.get("default", None)
-
-        enum = param_spec.get("enum", None)
-        if enum is not None and not isinstance(enum, list):
-            raise SchemaError(
-                f"Function '{fn_name}' parameter '{param_name}' enum must be a list or None"
-            )
-
         result.append(FunctionParameter(
             name=param_name,
-            type=normalized_type,
-            required=required,
-            description=description,
-            default=default,
-            enum=enum,
+            type=normalized_type
         ))
-
     return result
 
 

@@ -15,53 +15,23 @@ class FunctionParameter(BaseModel):
         ..., description="Expected data type of the parameter"
     )
 
-    required: bool = Field(
-        default=True,
-        description="Whether this parameter is required"
-    )
-
-    description: Optional[str] = Field(
-        default=None,
-        description="Human-readable explanation of the parameter"
-    )
-
-    default: Optional[Any] = Field(
-        default=None,
-        description="Default value used if parameter is not required"
-    )
-
-    enum: Optional[List[Any]] = Field(
-        default=None,
-        description="Allowed set of values for this parameter"
-    )
-
 
 class FunctionDefinition(BaseModel):
-    """
-    Defines a complete tool/function contract.
-    Acts as the LLM-facing specification for function calling.
-    """
-
-    name: str = Field(..., description="Unique name of the function")
+    name: str = Field(..., description="Function name")
 
     description: str = Field(
         ...,
-        description="Natural language explanation of what the function does"
+        description="Function description"
     )
 
-    parameters: List[FunctionParameter] = Field(
-        default_factory=list,
-        description="Ordered list of function parameters"
+    parameters: Dict[str, FunctionParameter] = Field(
+        ...,
+        description="Map of parameter name → parameter definition"
     )
 
-    strict: bool = Field(
-        default=True,
-        description="If true, disallows unknown arguments"
-    )
-
-    returns: Optional[str] = Field(
-        default=None,
-        description="Description or type of the return value"
+    returns: Dict[str, Any] = Field(
+        ...,
+        description="Return type definition (e.g. {'type': 'number'})"
     )
 
 
@@ -105,51 +75,17 @@ class ParsedInput(BaseModel):
     """
     Output of the parsing stage before schema resolution.
     """
-
-    raw_text: str = Field(
+    metadata: Dict[str, Any] = Field(
         ...,
-        description="Original user input"
-    )
-
-    intent: str = Field(
-        ...,
-        description="Detected intent label"
-    )
-
-    entities: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Extracted structured values from user input"
-    )
-
-    metadata: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Parser diagnostics and extra context"
+        description="Must contain {'functions': [...]}"
     )
 
 
 class NormalizedSchema(BaseModel):
-    """
-    Canonical schema used by the LLM decoding and validation pipeline.
-
-    This is a deterministic, serializable representation of all available
-    function definitions with enforced ordering rules.
-    """
-
-    schema_version: str = Field(
-        default="1.0",
-        description="Version of the schema format"
-    )
 
     functions: List[FunctionDefinition] = Field(
         ...,
         description="List of available function definitions"
-    )
-
-    field_order: List[str] = Field(
-        default_factory=lambda: [
-            "name", "description", "parameters", "strict", "returns"],
-        description="Canonical field order used for "
-        "deterministic serialization"
     )
 
 

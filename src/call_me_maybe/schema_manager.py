@@ -43,15 +43,13 @@ class SchemaManager:
         return sorted(self._function_names)
 
     def get_params_for_function(self, func_name: str) -> dict[str, str]:
-        """
-        Returns parameter name → type mapping for a function.
-        """
 
+        # Finds a function by name
         fn = next((
             f for f in self.available_functions if f.name == func_name), None)
         if not fn:
             return {}
-
+        # Returns them as a dictionary
         return {
             param.name: param.type
             for param in fn.parameters}
