@@ -1,4 +1,4 @@
-.PHONY: install run test lint
+.PHONY: install run test lint debug clean
 
 install:
 	uv sync
@@ -10,4 +10,16 @@ test:
 	uv run pytest
 
 lint:
-	uv run python -m py_compile src/call_me_maybe/*.py
+	uv run flake8 .
+	uv run mypy . \
+		--warn-return-any \
+		--warn-unused-ignores \
+		--ignore-missing-imports \
+		--disallow-untyped-defs \
+		--check-untyped-defs
+
+debug:
+	uv run python -m pdb -m call_me_maybe
+
+clean:
+	rm -rf __pycache__ .mypy_cache

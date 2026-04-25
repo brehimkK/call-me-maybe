@@ -172,5 +172,4 @@ def _normalize_type(type_value: Any, context: str) -> str:
     normalized = TYPE_ALIASES.get(key)
     if normalized is None or normalized not in CANONICAL_TYPES:
         raise SchemaError(f"{context}: Unsupported type: {type_value}")
-
     return normalized

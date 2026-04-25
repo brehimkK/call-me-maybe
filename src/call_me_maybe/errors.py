@@ -13,22 +13,23 @@ class SchemaError(CallMeMaybeError):
     pass
 
 
-class LLMAdapterError(CallMeMaybeError):
-    """Raised when there is an error communicating with the LLM."""
+class ValidationError(CallMeMaybeError):
+    """Raised when data validation fails."""
     pass
 
 
-class LLMTimeoutError(LLMAdapterError):
-    """Raised when the LLM request times out."""
+class LLMError(CallMeMaybeError):
+    pass
+
+
+class LLMTimeoutError(LLMError):
+    pass
+
+
+class LLMInternalError(LLMError):
     pass
 
 
 class OutputParseError(CallMeMaybeError):
     """Raised when the LLM output cannot be parsed."""
     pass
-
-
-class ValidationError(CallMeMaybeError):
-    """Raised when data validation fails."""
-    pass
-
